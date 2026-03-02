@@ -4,9 +4,14 @@
   "description": "RPG dice roller with real-time multiplayer sessions",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev"
   },
   "dependencies": {
     "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.69.0"
   }
 }
