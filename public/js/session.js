@@ -146,17 +146,19 @@
   // --- WebSocket ---
   function connect() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    ws = new WebSocket(protocol + '//' + window.location.host);
+    let wsUrl = protocol + '//' + window.location.host + '/ws?name=' + encodeURIComponent(name);
+
+    if (sessionCode) {
+      wsUrl += '&action=join&code=' + encodeURIComponent(sessionCode);
+    } else {
+      wsUrl += '&action=create';
+    }
+
+    ws = new WebSocket(wsUrl);
 
     ws.addEventListener('open', () => {
       banner.classList.remove('show');
       reconnectDelay = 1000;
-
-      if (sessionCode) {
-        ws.send(JSON.stringify({ type: 'join', code: sessionCode, name: name }));
-      } else {
-        ws.send(JSON.stringify({ type: 'create', name: name }));
-      }
     });
 
     ws.addEventListener('message', (event) => {

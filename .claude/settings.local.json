@@ -6,7 +6,8 @@
       "Bash(npm install:*)",
       "Bash(curl:*)",
       "WebSearch",
-      "WebFetch(domain:developers.cloudflare.com)"
+      "WebFetch(domain:developers.cloudflare.com)",
+      "Bash(rm:*)"
     ]
   }
 }

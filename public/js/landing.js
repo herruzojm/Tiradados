@@ -27,7 +27,7 @@
   btnCreate.addEventListener('click', () => {
     const name = getName();
     if (!name) return;
-    window.location.href = 'session.html?name=' + encodeURIComponent(name);
+    window.location.href = '/session?name=' + encodeURIComponent(name);
   });
 
   btnJoin.addEventListener('click', () => {
@@ -41,7 +41,7 @@
       return;
     }
 
-    window.location.href = 'session.html?code=' + encodeURIComponent(code) + '&name=' + encodeURIComponent(name);
+    window.location.href = '/session?code=' + encodeURIComponent(code) + '&name=' + encodeURIComponent(name);
   });
 
   // Enter key on code input triggers join
