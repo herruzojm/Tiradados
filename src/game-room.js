@@ -3,6 +3,7 @@ export class GameRoom {
     this.state = state;
     this.players = new Map(); // ws -> { name }
     this.log = [];
+    this.background = null; // data URL of the table background image
     this.initialized = false;
   }
 
@@ -26,6 +27,7 @@ export class GameRoom {
         code,
         players: [name],
         log: [],
+        background: this.background,
       }));
 
     } else if (action === 'join') {
@@ -51,6 +53,7 @@ export class GameRoom {
         code,
         players: playerNames,
         log: this.log,
+        background: this.background,
       }));
 
       this.broadcast({ type: 'player-joined', name, players: playerNames }, server);
@@ -75,10 +78,18 @@ export class GameRoom {
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
 
-    if (msg.type !== 'roll') return;
-
     const player = this.players.get(ws);
     if (!player) return;
+
+    if (msg.type === 'background') {
+      // null to clear, or a data URL string (max ~800KB)
+      if (msg.data !== null && (typeof msg.data !== 'string' || msg.data.length > 800000)) return;
+      this.background = msg.data;
+      this.broadcast({ type: 'background', data: msg.data });
+      return;
+    }
+
+    if (msg.type !== 'roll') return;
 
     const validDice = ['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'];
     const dice = msg.dice;
@@ -114,6 +125,7 @@ export class GameRoom {
     if (this.players.size === 0) {
       this.initialized = false;
       this.log = [];
+      this.background = null;
     }
   }
 

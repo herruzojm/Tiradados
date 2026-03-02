@@ -176,15 +176,19 @@
           codeEl.textContent = msg.code;
           document.title = 'TiraDados - ' + msg.code;
           updatePlayers(msg.players);
-          // Load existing log
           if (msg.log && msg.log.length > 0) {
             logEmpty.style.display = 'none';
             msg.log.forEach(entry => addLogEntry(entry));
           }
+          if (msg.background) setBackground(msg.background);
           break;
 
         case 'roll-result':
           addLogEntry(msg);
+          break;
+
+        case 'background':
+          setBackground(msg.data);
           break;
 
         case 'player-joined':
@@ -219,4 +223,128 @@
   }
 
   connect();
+
+  // --- Background image ---
+  const diceArea = document.querySelector('.dice-area');
+  let bgClearBtn = null;
+
+  function setBackground(dataUrl) {
+    if (dataUrl) {
+      stagingEl.style.backgroundImage = 'url(' + dataUrl + ')';
+      stagingEl.style.backgroundSize = 'cover';
+      stagingEl.style.backgroundPosition = 'center';
+      showBgClearBtn();
+    } else {
+      stagingEl.style.backgroundImage = '';
+      hideBgClearBtn();
+    }
+  }
+
+  function showBgClearBtn() {
+    if (bgClearBtn) return;
+    bgClearBtn = document.createElement('button');
+    bgClearBtn.className = 'btn-bg-clear';
+    bgClearBtn.textContent = 'Quitar fondo';
+    bgClearBtn.title = 'Quitar imagen de fondo';
+    bgClearBtn.addEventListener('click', () => {
+      if (!ws) return;
+      ws.send(JSON.stringify({ type: 'background', data: null }));
+      setBackground(null);
+    });
+    diceArea.querySelector('.dice-actions').appendChild(bgClearBtn);
+  }
+
+  function hideBgClearBtn() {
+    if (bgClearBtn) {
+      bgClearBtn.remove();
+      bgClearBtn = null;
+    }
+  }
+
+  function resizeAndSend(file) {
+    var maxSize = 1200;
+    var img = new Image();
+    img.onload = function () {
+      var w = img.width;
+      var h = img.height;
+      if (w > maxSize || h > maxSize) {
+        if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+        else { w = Math.round(w * maxSize / h); h = maxSize; }
+      }
+      var canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      var dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+      if (ws) ws.send(JSON.stringify({ type: 'background', data: dataUrl }));
+      setBackground(dataUrl);
+    };
+    img.src = URL.createObjectURL(file);
+  }
+
+  // Drag & drop on the staging area
+  stagingEl.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    stagingEl.classList.add('drag-over');
+  });
+
+  stagingEl.addEventListener('dragleave', () => {
+    stagingEl.classList.remove('drag-over');
+  });
+
+  stagingEl.addEventListener('drop', (e) => {
+    e.preventDefault();
+    stagingEl.classList.remove('drag-over');
+    var files = e.dataTransfer.files;
+    if (files.length > 0 && files[0].type.startsWith('image/')) {
+      resizeAndSend(files[0]);
+    }
+  });
+
+  // --- Resizable divider ---
+  const divider = document.getElementById('divider');
+  const main = document.querySelector('.session-main');
+  let dragging = false;
+
+  function isMobile() {
+    return window.matchMedia('(max-width: 768px)').matches;
+  }
+
+  function onPointerDown(e) {
+    dragging = true;
+    divider.classList.add('active');
+    divider.setPointerCapture(e.pointerId);
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  }
+
+  function onPointerMove(e) {
+    if (!dragging) return;
+    const rect = main.getBoundingClientRect();
+
+    if (isMobile()) {
+      const y = e.clientY - rect.top;
+      const total = rect.height;
+      const pct = Math.max(15, Math.min(85, (y / total) * 100));
+      main.style.setProperty('--top', pct + '%');
+      main.style.setProperty('--bottom', (100 - pct) + '%');
+    } else {
+      const x = e.clientX - rect.left;
+      const total = rect.width;
+      const pct = Math.max(20, Math.min(80, (x / total) * 100));
+      main.style.setProperty('--left', pct + '%');
+      main.style.setProperty('--right', (100 - pct) + '%');
+    }
+  }
+
+  function onPointerUp() {
+    if (!dragging) return;
+    dragging = false;
+    divider.classList.remove('active');
+    document.body.style.userSelect = '';
+  }
+
+  divider.addEventListener('pointerdown', onPointerDown);
+  document.addEventListener('pointermove', onPointerMove);
+  document.addEventListener('pointerup', onPointerUp);
 })();
