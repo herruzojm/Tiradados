@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TiraDados</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="landing">
+    <div class="landing-card">
+      <h1>TiraDados</h1>
+      <p class="subtitle">Tira dados de rol con tus amigos</p>
+
+      <label for="name">Tu nombre</label>
+      <input type="text" id="name" placeholder="Nombre" maxlength="20" autofocus>
+
+      <div class="error-msg" id="error"></div>
+
+      <button class="btn-create" id="btn-create">Crear Sesion</button>
+
+      <div class="divider">o unirse a una</div>
+
+      <label for="code">Codigo de sesion</label>
+      <input type="text" id="code" class="input-code" placeholder="ABCDEF" maxlength="6">
+
+      <button class="btn-join" id="btn-join">Unirse</button>
+    </div>
+  </div>
+  <script src="js/landing.js"></script>
+</body>
+</html>

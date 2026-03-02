@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TiraDados - Sesion</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="connection-banner" id="connection-banner">Reconectando...</div>
+
+  <header class="session-header">
+    <span class="session-code" id="session-code" title="Click para copiar">...</span>
+    <span class="player-list" id="player-list"></span>
+  </header>
+
+  <main class="session-main">
+    <section class="dice-area">
+      <div class="dice-selector" id="dice-selector"></div>
+      <div class="dice-staging" id="dice-staging">
+        <p class="placeholder">Haz click en los dados para seleccionarlos</p>
+      </div>
+      <div class="dice-actions">
+        <button class="btn-clear" id="btn-clear">Limpiar <span class="shortcut">(Esc)</span></button>
+        <button class="btn-roll" id="btn-roll" disabled>Tirar <span class="shortcut">(Enter)</span></button>
+      </div>
+    </section>
+
+    <section class="log" id="log">
+      <div class="log-title">Historial</div>
+      <div class="log-entries" id="log-entries">
+        <p class="log-empty" id="log-empty">Aun no hay tiradas</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/dice-svg.js"></script>
+  <script src="js/session.js"></script>
+</body>
+</html>
