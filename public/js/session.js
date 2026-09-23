@@ -186,15 +186,19 @@
     // not allowed to see them, so there is nothing here to hide client-side.
     if (entry.redacted) {
       div.classList.add('log-redacted');
-      if (entry.band) {
-        // Host's hidden roll: the table gets the shape of it, not the numbers.
+      if (entry.bands && entry.bands.length) {
+        // Host's hidden roll: the table gets one verdict per die, never the
+        // numbers or the formula.
         const n = entry.diceCount;
         div.appendChild(document.createTextNode(
-          ' ha tirado ' + n + (n === 1 ? ' dado' : ' dados') + ' y ha salido '));
-        const bandSpan = document.createElement('span');
-        bandSpan.className = 'log-band';
-        bandSpan.textContent = entry.band;
-        div.appendChild(bandSpan);
+          ' ha tirado ' + n + (n === 1 ? ' dado' : ' dados') + ' y ha salido: '));
+        entry.bands.forEach((band, i) => {
+          if (i > 0) div.appendChild(document.createTextNode(', '));
+          const bandSpan = document.createElement('span');
+          bandSpan.className = 'log-band';
+          bandSpan.textContent = band;
+          div.appendChild(bandSpan);
+        });
       } else {
         div.appendChild(document.createTextNode(' hace una tirada oculta'));
       }

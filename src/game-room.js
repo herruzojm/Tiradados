@@ -16,12 +16,15 @@ const MOVE_FLUSH_MS = 3000;
 
 const ROLL_BANDS = ['muy bajo', 'bajo', 'medio', 'alto', 'muy alto'];
 
-// Where the total landed within the range the chosen dice could produce, so a
-// handful of d6 and a single d20 are judged on their own scales.
-function describeBand(total, min, max) {
-  if (!(max > min)) return ROLL_BANDS[2];
-  const ratio = (total - min) / (max - min);
-  return ROLL_BANDS[Math.max(0, Math.min(4, Math.floor(ratio * 5)))];
+// Each die is judged on its own scale, so a d6 and a d20 mean the same thing by
+// "alto". Scoring the midpoint of the value's slot rather than its edge keeps
+// the bands symmetric: on a d6 that puts 1 at muy bajo, 3 and 4 at medio, and 6
+// at muy alto. Banding the sum instead would collapse towards medio as soon as
+// several dice are involved.
+function describeBand(value, sides) {
+  if (!(sides > 1)) return ROLL_BANDS[2];
+  const idx = Math.floor(((value - 0.5) / sides) * ROLL_BANDS.length);
+  return ROLL_BANDS[Math.max(0, Math.min(ROLL_BANDS.length - 1, idx))];
 }
 
 const LOG_LIMIT = 100;
@@ -242,12 +245,11 @@ export class GameRoom {
     }
     if (totalDice === 0 || totalDice > 100) return;
 
-    const { formula, results, min, max } = this.rollDice(cleanDice);
+    const { formula, results, bands } = this.rollDice(cleanDice);
     const entry = { name, formula, results, timestamp: Date.now() };
     if (msg.hidden === true) {
       entry.hidden = true;
-      const total = results.reduce((a, b) => a + b, 0);
-      entry.band = describeBand(total, min, max);
+      entry.bands = bands;
     }
 
     this.log.push(entry);
@@ -345,9 +347,10 @@ export class GameRoom {
     // The table should feel the host's secret rolls without reading them, so
     // those carry the dice count and a rough verdict. A player's hidden roll
     // stays between them and the host.
-    if (this.isHost(entry.name) && entry.band) {
+    if (this.isHost(entry.name) && entry.bands) {
       out.diceCount = entry.results.length;
-      out.band = entry.band;
+      // One verdict per die, in the same order the host sees the numbers.
+      out.bands = entry.bands;
     }
     return out;
   }
@@ -445,28 +448,29 @@ export class GameRoom {
   }
 
   rollDice(dice) {
-    const results = [];
+    // Each roll keeps its die size alongside its value so it can be banded on
+    // its own scale once the list is sorted and the dice types are mixed up.
+    const rolled = [];
     const parts = [];
     const order = ['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'];
     const sorted = Object.entries(dice).sort(
       (a, b) => order.indexOf(a[0]) - order.indexOf(b[0])
     );
 
-    let min = 0;
-    let max = 0;
-
     for (const [die, count] of sorted) {
       const sides = die === 'd100' ? 100 : parseInt(die.slice(1));
       parts.push(`${count}${die}`);
-      min += count;
-      max += count * sides;
       for (let i = 0; i < count; i++) {
-        results.push(Math.floor(Math.random() * sides) + 1);
+        rolled.push({ value: Math.floor(Math.random() * sides) + 1, sides });
       }
     }
 
-    results.sort((a, b) => b - a);
-    return { formula: parts.join(' '), results, min, max };
+    rolled.sort((a, b) => b.value - a.value);
+    return {
+      formula: parts.join(' '),
+      results: rolled.map(r => r.value),
+      bands: rolled.map(r => describeBand(r.value, r.sides)),
+    };
   }
 
   broadcast(message, exclude) {
