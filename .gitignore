@@ -1,0 +1,15 @@
+# Dependencies: restored with `npm install`, never versioned.
+node_modules/
+
+# Wrangler build output, local Durable Object databases and cached account
+# metadata. Machine-specific, and the caches carry account and geolocation
+# details that have no business in a public repo.
+.wrangler/
+
+# Local secrets for `wrangler dev`.
+.dev.vars
+.env
+
+*.log
+.DS_Store
+Thumbs.db
