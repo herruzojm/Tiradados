@@ -7,7 +7,12 @@
       "Bash(curl:*)",
       "WebSearch",
       "WebFetch(domain:developers.cloudflare.com)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(npx wrangler *)",
+      "Read(//c/Users/JesúsHerruzo/AppData/Roaming/xdg.config/.wrangler/**)",
+      "Read(//c/Users/JesúsHerruzo/AppData/Roaming/xdg.config/.wrangler/config/**)",
+      "Bash(env)",
+      "PowerShell(Get-NetTCPConnection *)"
     ]
   }
 }
