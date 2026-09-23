@@ -35,24 +35,42 @@
     return name;
   }
 
-  btnCreate.addEventListener('click', () => {
+  // The name rides in sessionStorage rather than the query string, so the
+  // session URL stays safe to share: a name in the address bar meant anyone
+  // opening the link joined under the sharer's name. Per tab, not per browser,
+  // so two tabs can be two different players.
+  function enterSession(code) {
     const name = getName();
     if (!name) return;
-    window.location.href = '/session?name=' + encodeURIComponent(name);
-  });
+
+    let stored = false;
+    try {
+      sessionStorage.setItem('tiradados-name', name);
+      stored = true;
+    } catch {}
+
+    const params = [];
+    if (code) params.push('code=' + encodeURIComponent(code));
+    // Only when storage is unavailable, so the app still works there.
+    if (!stored) params.push('name=' + encodeURIComponent(name));
+
+    window.location.href = '/session' + (params.length ? '?' + params.join('&') : '');
+  }
+
+  btnCreate.addEventListener('click', () => enterSession(null));
 
   btnJoin.addEventListener('click', () => {
-    const name = getName();
-    if (!name) return;
-
     const code = codeInput.value.trim();
     if (!code || code.length !== 6) {
-      showError('El codigo debe tener 6 letras');
-      codeInput.focus();
+      if (nameInput.value.trim()) {
+        showError('El codigo debe tener 6 letras');
+        codeInput.focus();
+      } else {
+        getName();
+      }
       return;
     }
-
-    window.location.href = '/session?code=' + encodeURIComponent(code) + '&name=' + encodeURIComponent(name);
+    enterSession(code);
   });
 
   // Enter key on code input triggers join

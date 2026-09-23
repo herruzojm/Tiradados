@@ -1,13 +1,46 @@
 (function () {
-  // --- Parse URL params ---
+  // --- Identity and room code ---
+  // The name must not live in the URL. With it there, sharing the address bar
+  // made the recipient join under the sharer's name -- and since a repeated
+  // name now replaces the older connection, that kicked the sharer out of
+  // their own room. It rides in sessionStorage instead: per tab, so two tabs
+  // can be two players, and it survives a reload.
+  const NAME_KEY = 'tiradados-name';
   const params = new URLSearchParams(window.location.search);
-  const name = params.get('name');
   const code = params.get('code'); // null if creating
 
+  function storageWorks() {
+    try {
+      sessionStorage.setItem('__probe', '1');
+      sessionStorage.removeItem('__probe');
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  const hasStorage = storageWorks();
+  // A name in the query string is only honoured when storage is unavailable.
+  // Otherwise it is ignored and stripped, so old shared links cannot hijack
+  // anyone: the visitor is simply sent to the join form to name themselves.
+  const name = hasStorage
+    ? sessionStorage.getItem(NAME_KEY)
+    : params.get('name');
+
+  // Only strip it when storage is carrying the name instead; without storage
+  // the query string is the only copy and a reload would lose it.
+  if (hasStorage && params.has('name')) {
+    const clean = new URL(window.location.href);
+    clean.searchParams.delete('name');
+    window.history.replaceState(null, '', clean.toString());
+  }
+
   if (!name) {
-    window.location.href = '/';
+    window.location.href = code ? '/?code=' + encodeURIComponent(code) : '/';
     return;
   }
+
+  if (hasStorage) sessionStorage.setItem(NAME_KEY, name);
 
   // --- DOM refs ---
   const codeEl = document.getElementById('session-code');
