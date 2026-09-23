@@ -18,7 +18,15 @@
     <section class="dice-area">
       <div class="dice-selector" id="dice-selector"></div>
       <div class="dice-staging" id="dice-staging">
-        <p class="placeholder">Haz click en los dados para seleccionarlos</p>
+        <div class="token-layer" id="token-layer"></div>
+        <div class="dice-tray" id="dice-tray">
+          <p class="placeholder">Haz click en los dados para seleccionarlos</p>
+        </div>
+      </div>
+      <div class="token-bar">
+        <span class="token-bar-label">Fichas</span>
+        <div class="token-palette" id="token-palette"></div>
+        <span class="token-bar-hint">Click en un color para anadir un PNJ &middot; arrastra para mover &middot; click en una ficha para editarla</span>
       </div>
       <div class="dice-actions">
         <button class="btn-clear" id="btn-clear">Limpiar <span class="shortcut">(Esc)</span></button>

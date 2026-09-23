@@ -10,6 +10,17 @@
     codeInput.value = codeInput.value.replace(/[^a-zA-Z]/g, '').toUpperCase();
   });
 
+  // Invite links look like /?code=ABCDEF: prefill the code so the guest only
+  // has to type a name.
+  const inviteCode = (new URLSearchParams(window.location.search).get('code') || '')
+    .replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 6);
+
+  if (inviteCode.length === 6) {
+    codeInput.value = inviteCode;
+    document.body.classList.add('invited');
+    nameInput.focus();
+  }
+
   function showError(msg) {
     errorEl.textContent = msg;
   }

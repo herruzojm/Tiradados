@@ -296,7 +296,8 @@ body {
   margin-left: 0.4rem;
 }
 
-.btn-bg-clear {
+.btn-bg-clear,
+.btn-bg-mode {
   padding: 0.5rem 1rem;
   border: 1px solid #555;
   border-radius: 8px;
@@ -310,6 +311,11 @@ body {
 .btn-bg-clear:hover {
   border-color: #ff6b6b;
   color: #ff6b6b;
+}
+
+.btn-bg-mode:hover {
+  border-color: #ffd700;
+  color: #ffd700;
 }
 
 /* Resizable divider */
@@ -428,6 +434,218 @@ body {
   animation: fadeIn 0.3s;
 }
 
+/* Arriving through an invite link: joining is the expected action, so swap the
+   emphasis. Otherwise the big yellow "Crear Sesion" tempts guests into making a
+   new empty room instead of joining the one they were sent. */
+body.invited .btn-create {
+  background: #2a2a4a;
+  color: #aaa;
+}
+
+body.invited .btn-create:hover {
+  background: #3a3a5a;
+}
+
+body.invited .btn-join {
+  background: #ffd700;
+  color: #1a1a2e;
+  font-weight: bold;
+}
+
+body.invited .btn-join:hover {
+  background: #ffd700;
+  opacity: 0.9;
+}
+
+/* ===== MAP TOKENS ===== */
+
+/* The dice keep their own flow box so re-rendering them never wipes the
+   absolutely positioned token layer stacked above. */
+.dice-tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.token-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.map-token {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transition: left 0.08s linear, top 0.08s linear;
+}
+
+/* No easing while this client drags: the transition is only there to smooth
+   out the throttled positions arriving from everyone else. */
+.map-token.dragging {
+  cursor: grabbing;
+  transition: none;
+  z-index: 10;
+}
+
+.map-token-dot {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border: 2px solid rgba(0, 0, 0, 0.45);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.map-token.is-player .map-token-dot {
+  border-color: rgba(255, 255, 255, 0.85);
+}
+
+.map-token-name {
+  font-size: 0.65rem;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.65);
+  padding: 1px 6px;
+  border-radius: 6px;
+  white-space: nowrap;
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* NPC pool */
+.token-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.token-bar-label {
+  color: #666;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.token-palette {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.token-chip {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  transition: transform 0.1s, border-color 0.1s;
+}
+
+.token-chip:hover {
+  transform: scale(1.2);
+  border-color: #fff;
+}
+
+.token-bar-hint {
+  color: #555;
+  font-size: 0.7rem;
+}
+
+/* Token editor popover */
+.token-editor {
+  position: absolute;
+  transform: translate(-50%, 28px);
+  pointer-events: auto;
+  z-index: 20;
+  background: #16213e;
+  border: 1px solid #3a3a5a;
+  border-radius: 10px;
+  padding: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+}
+
+/* Flip above the token when it sits low enough that the popover would
+   otherwise fall outside the map. */
+.token-editor.above {
+  transform: translate(-50%, calc(-100% - 28px));
+}
+
+.token-editor-name {
+  width: 144px;
+  background: #0f0f23;
+  border: 1px solid #3a3a5a;
+  border-radius: 6px;
+  color: #e0e0e0;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.token-editor-name:focus {
+  outline: none;
+  border-color: #ffd700;
+}
+
+.token-editor-colors {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+  width: 144px;
+}
+
+.token-swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+
+.token-swatch:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.token-swatch.selected {
+  border-color: #fff;
+}
+
+.token-editor-del {
+  background: transparent;
+  border: 1px solid #553;
+  color: #ff6b6b;
+  border-radius: 6px;
+  padding: 0.3rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.token-editor-del:hover {
+  border-color: #ff6b6b;
+}
+
 /* ===== RESPONSIVE (mobile) ===== */
 
 @media (max-width: 768px) {
@@ -453,7 +671,16 @@ body {
   }
 
   .dice-staging {
-    min-height: 80px;
+    min-height: 200px;
+  }
+
+  .map-token-dot {
+    width: 44px;
+    height: 44px;
+  }
+
+  .token-bar-hint {
+    display: none;
   }
 
   .log {
