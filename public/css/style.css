@@ -166,6 +166,7 @@ body {
   grid-template-columns: var(--left, 1fr) 6px var(--right, 1fr);
   gap: 0;
   height: calc(100vh - 50px);
+  height: calc(100dvh - 50px);
 }
 
 /* Dice area */
@@ -324,6 +325,8 @@ body {
   cursor: col-resize;
   position: relative;
   transition: background 0.15s;
+  /* Without this a touch drag scrolls the page instead of moving the split. */
+  touch-action: none;
 }
 
 .divider:hover,
@@ -455,6 +458,66 @@ body.invited .btn-join {
 body.invited .btn-join:hover {
   background: #ffd700;
   opacity: 0.9;
+}
+
+/* ===== HIDDEN ROLLS ===== */
+
+.btn-roll-hidden {
+  background: #2a2a4a;
+  color: #b9a7d9;
+  border: 1px solid #4a3a6a;
+}
+
+.btn-roll-hidden:hover:not(:disabled) {
+  background: #3a3a5a;
+  color: #d9c9f5;
+}
+
+.btn-roll-hidden:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.btn-roll-hidden .shortcut {
+  font-size: 0.7rem;
+  opacity: 0.6;
+  margin-left: 0.4rem;
+}
+
+/* A roll we are allowed to see but the rest of the table is not. */
+.log-entry.log-hidden {
+  border-left: 2px solid #b46cff;
+  padding-left: 0.5rem;
+}
+
+.log-badge {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #b46cff;
+  border: 1px solid #4a3a6a;
+  border-radius: 4px;
+  padding: 0 4px;
+  margin-left: 0.4rem;
+  white-space: nowrap;
+}
+
+/* The host's secret roll leaks only how it went, so that verdict is the part
+   worth reading. */
+.log-band {
+  color: #b46cff;
+  font-style: normal;
+  font-weight: 700;
+}
+
+/* Somebody else's hidden roll: we are told it happened, nothing more. */
+.log-entry.log-redacted {
+  color: #555;
+  font-style: italic;
+}
+
+.log-entry.log-redacted .name {
+  color: #4a6a78;
 }
 
 /* ===== MAP TOKENS ===== */
@@ -651,13 +714,22 @@ body.invited .btn-join:hover {
 @media (max-width: 768px) {
   .session-main {
     grid-template-columns: 1fr !important;
-    grid-template-rows: var(--top, 1fr) 6px var(--bottom, 1fr);
+    /* The map is what people came for; the log gets the smaller share and can
+       still be dragged bigger with the divider. */
+    grid-template-rows: var(--top, 1.4fr) 6px var(--bottom, 1fr);
     height: auto;
     min-height: calc(100vh - 50px);
+    min-height: calc(100dvh - 50px);
   }
 
   .divider {
     cursor: row-resize;
+    /* 6px is not a grabbable target with a fingertip. */
+    height: 14px;
+  }
+
+  .session-main {
+    grid-template-rows: var(--top, 1.4fr) 14px var(--bottom, 1fr);
   }
 
   .dice-area {
@@ -671,7 +743,8 @@ body.invited .btn-join:hover {
   }
 
   .dice-staging {
-    min-height: 200px;
+    /* 200px left a token's name label hanging over the border. */
+    min-height: 240px;
   }
 
   .map-token-dot {
@@ -690,13 +763,85 @@ body.invited .btn-join:hover {
     padding: 0.75rem;
   }
 
-  .dice-actions button {
-    padding: 0.6rem 1.5rem;
-    font-size: 0.9rem;
+  /* Three buttons at full padding need 360px of a 347px row, which clipped
+     "Tirar" off the screen. Let them wrap and share the width instead. */
+  .dice-actions {
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 
-  .btn-clear .shortcut,
-  .btn-roll .shortcut {
+  .dice-actions button {
+    padding: 0.7rem 0.5rem;
+    font-size: 0.9rem;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  /* Keyboard hints mean nothing on a phone. */
+  .dice-actions .shortcut {
+    display: none;
+  }
+
+  .btn-roll {
+    min-width: 0;
+  }
+
+  /* Fatter touch targets for the NPC palette. */
+  .token-chip {
+    width: 28px;
+    height: 28px;
+  }
+
+  .token-palette {
+    gap: 0.45rem;
+  }
+
+  /* Editing a token one-handed: bigger field and swatches. iOS Safari zooms
+     the whole page when a focused input is under 16px, so this is not just
+     cosmetic. */
+  .token-editor-name,
+  .token-editor-colors {
+    width: 168px;
+  }
+
+  .token-editor-name {
+    font-size: 16px;
+    padding: 0.45rem 0.5rem;
+  }
+
+  /* Comfortable tap targets on the join form. */
+  .landing-card input,
+  .btn-create,
+  .btn-join {
+    min-height: 46px;
+  }
+
+  .token-swatch {
+    width: 28px;
+    height: 28px;
+  }
+
+  .token-editor-del {
+    padding: 0.5rem;
+  }
+}
+
+/* Very narrow phones: the dice row wrapped and left d100 stranded alone. */
+@media (max-width: 420px) {
+  .dice-selector {
+    gap: 0.3rem;
+  }
+
+  .die-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .dice-area {
+    padding: 0.6rem;
+  }
+
+  .token-bar-label {
     display: none;
   }
 }

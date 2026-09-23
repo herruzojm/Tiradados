@@ -52,6 +52,7 @@
   const tokenPalette = document.getElementById('token-palette');
   const btnClear = document.getElementById('btn-clear');
   const btnRoll = document.getElementById('btn-roll');
+  const btnRollHidden = document.getElementById('btn-roll-hidden');
   const logEntries = document.getElementById('log-entries');
   const logEmpty = document.getElementById('log-empty');
   const banner = document.getElementById('connection-banner');
@@ -91,6 +92,7 @@
 
   function renderStaging() {
     btnRoll.disabled = selectedDice.length === 0;
+    btnRollHidden.disabled = selectedDice.length === 0;
 
     if (selectedDice.length === 0) {
       diceTray.innerHTML = '<p class="placeholder">Haz click en los dados para seleccionarlos</p>';
@@ -112,19 +114,20 @@
     renderStaging();
   }
 
-  function rollDice() {
+  function rollDice(hidden) {
     if (selectedDice.length === 0 || !ws) return;
 
     const dice = {};
     selectedDice.forEach(d => dice[d] = (dice[d] || 0) + 1);
 
-    ws.send(JSON.stringify({ type: 'roll', dice: dice }));
+    ws.send(JSON.stringify({ type: 'roll', dice: dice, hidden: hidden === true }));
     selectedDice = [];
     renderStaging();
   }
 
   btnClear.addEventListener('click', clearDice);
-  btnRoll.addEventListener('click', rollDice);
+  btnRoll.addEventListener('click', () => rollDice(false));
+  btnRollHidden.addEventListener('click', () => rollDice(true));
 
   document.addEventListener('keydown', (e) => {
     // Don't trigger if user is typing in an input
@@ -133,7 +136,7 @@
       if (tokenEditor) { closeTokenEditor(); return; }
       clearDice();
     }
-    if (e.key === 'Enter') rollDice();
+    if (e.key === 'Enter') rollDice(e.shiftKey);
   });
 
   // --- Session code in the URL and on the clipboard ---
@@ -177,24 +180,50 @@
     const nameSpan = document.createElement('span');
     nameSpan.className = 'name';
     nameSpan.textContent = entry.name;
+    div.appendChild(nameSpan);
 
-    const text1 = document.createTextNode(' lanza ');
+    // The server strips the numbers before they ever reach a client that is
+    // not allowed to see them, so there is nothing here to hide client-side.
+    if (entry.redacted) {
+      div.classList.add('log-redacted');
+      if (entry.band) {
+        // Host's hidden roll: the table gets the shape of it, not the numbers.
+        const n = entry.diceCount;
+        div.appendChild(document.createTextNode(
+          ' ha tirado ' + n + (n === 1 ? ' dado' : ' dados') + ' y ha salido '));
+        const bandSpan = document.createElement('span');
+        bandSpan.className = 'log-band';
+        bandSpan.textContent = entry.band;
+        div.appendChild(bandSpan);
+      } else {
+        div.appendChild(document.createTextNode(' hace una tirada oculta'));
+      }
+      logEntries.prepend(div);
+      return;
+    }
+
+    div.appendChild(document.createTextNode(' lanza '));
 
     const formulaSpan = document.createElement('span');
     formulaSpan.className = 'formula';
     formulaSpan.textContent = entry.formula;
+    div.appendChild(formulaSpan);
 
-    const text2 = document.createTextNode(' obteniendo: ');
+    div.appendChild(document.createTextNode(' obteniendo: '));
 
     const resultsSpan = document.createElement('span');
     resultsSpan.className = 'results';
     resultsSpan.textContent = entry.results.join(', ');
-
-    div.appendChild(nameSpan);
-    div.appendChild(text1);
-    div.appendChild(formulaSpan);
-    div.appendChild(text2);
     div.appendChild(resultsSpan);
+
+    if (entry.hidden) {
+      div.classList.add('log-hidden');
+      const badge = document.createElement('span');
+      badge.className = 'log-badge';
+      badge.textContent = 'oculta';
+      badge.title = 'Solo la veis quien tira y el creador de la sala';
+      div.appendChild(badge);
+    }
 
     logEntries.prepend(div);
   }
@@ -665,8 +694,21 @@
 
     tokenLayer.appendChild(box);
     tokenEditor = box;
-    input.focus();
-    input.select();
+
+    // A token near the edge would push the popover off a narrow screen.
+    const mapRect = stagingEl.getBoundingClientRect();
+    const boxRect = box.getBoundingClientRect();
+    let shift = 0;
+    if (boxRect.left < mapRect.left + 4) shift = mapRect.left + 4 - boxRect.left;
+    else if (boxRect.right > mapRect.right - 4) shift = mapRect.right - 4 - boxRect.right;
+    if (shift) box.style.marginLeft = Math.round(shift) + 'px';
+
+    // On touch, focusing would throw up the keyboard over the map before the
+    // user has said they want to rename anything.
+    if (!window.matchMedia('(pointer: coarse)').matches) {
+      input.focus();
+      input.select();
+    }
   }
 
   function closeTokenEditor(discard) {

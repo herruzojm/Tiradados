@@ -14,6 +14,16 @@ const GRACE_MS = 10 * 60 * 1000;
 // single write instead of hitting storage on every frame.
 const MOVE_FLUSH_MS = 3000;
 
+const ROLL_BANDS = ['muy bajo', 'bajo', 'medio', 'alto', 'muy alto'];
+
+// Where the total landed within the range the chosen dice could produce, so a
+// handful of d6 and a single d20 are judged on their own scales.
+function describeBand(total, min, max) {
+  if (!(max > min)) return ROLL_BANDS[2];
+  const ratio = (total - min) / (max - min);
+  return ROLL_BANDS[Math.max(0, Math.min(4, Math.floor(ratio * 5)))];
+}
+
 const LOG_LIMIT = 100;
 const MAX_TOKENS = 40;
 const MAX_BACKGROUND = 800000; // data URL chars; SQLite allows 2 MB per value
@@ -47,6 +57,10 @@ export class GameRoom {
         state.storage.get('log'),
       ]);
       this.initialized = meta ? meta.initialized : false;
+      // Identified by name, like the tokens: a host who reconnects keeps the
+      // role. Rooms created before hidden rolls existed have no host, so
+      // nobody gets the extra visibility.
+      this.host = meta ? meta.host || null : null;
       this.tokenSeq = meta ? meta.tokenSeq : 0;
       this.npcSeq = meta ? meta.npcSeq : 0;
       this.tokens = new Map(tokens || []);
@@ -79,6 +93,7 @@ export class GameRoom {
       if (this.others(server).length === 0) await this.reset();
 
       this.initialized = true;
+      this.host = name;
       server.serializeAttachment({ name });
       this.assignPlayerToken(name);
       await this.state.storage.delete('emptyAt');
@@ -133,7 +148,7 @@ export class GameRoom {
         type: 'joined',
         code,
         players: playerNames,
-        log: this.log,
+        log: this.visibleLog(name),
         background: (await this.state.storage.get('background')) || null,
         tokens: this.getTokens(),
       }));
@@ -227,14 +242,32 @@ export class GameRoom {
     }
     if (totalDice === 0 || totalDice > 100) return;
 
-    const { formula, results } = this.rollDice(cleanDice);
+    const { formula, results, min, max } = this.rollDice(cleanDice);
     const entry = { name, formula, results, timestamp: Date.now() };
+    if (msg.hidden === true) {
+      entry.hidden = true;
+      const total = results.reduce((a, b) => a + b, 0);
+      entry.band = describeBand(total, min, max);
+    }
 
     this.log.push(entry);
     if (this.log.length > LOG_LIMIT) this.log.shift();
     await this.state.storage.put('log', this.log);
 
-    this.broadcast({ type: 'roll-result', ...entry });
+    if (!entry.hidden) {
+      this.broadcast({ type: 'roll-result', ...entry });
+      return;
+    }
+
+    // Everyone still learns that a roll happened, but only the roller and the
+    // host receive the numbers.
+    const full = JSON.stringify({ type: 'roll-result', ...entry });
+    const redacted = JSON.stringify({ type: 'roll-result', ...this.redact(entry) });
+    for (const sock of this.state.getWebSockets()) {
+      const viewer = this.nameOf(sock);
+      if (!viewer) continue;
+      try { sock.send(this.canSeeRoll(viewer, entry) ? full : redacted); } catch {}
+    }
   }
 
   async webSocketClose(ws, code, reason) {
@@ -290,9 +323,37 @@ export class GameRoom {
   async persistMeta() {
     await this.state.storage.put('meta', {
       initialized: this.initialized,
+      host: this.host,
       tokenSeq: this.tokenSeq,
       npcSeq: this.npcSeq,
     });
+  }
+
+  isHost(who) {
+    return !!this.host && !!who && who.toLowerCase() === this.host.toLowerCase();
+  }
+
+  // What a given viewer is allowed to see of a roll.
+  canSeeRoll(viewer, entry) {
+    if (!entry.hidden) return true;
+    if (this.isHost(viewer)) return true;
+    return viewer.toLowerCase() === entry.name.toLowerCase();
+  }
+
+  redact(entry) {
+    const out = { name: entry.name, timestamp: entry.timestamp, hidden: true, redacted: true };
+    // The table should feel the host's secret rolls without reading them, so
+    // those carry the dice count and a rough verdict. A player's hidden roll
+    // stays between them and the host.
+    if (this.isHost(entry.name) && entry.band) {
+      out.diceCount = entry.results.length;
+      out.band = entry.band;
+    }
+    return out;
+  }
+
+  visibleLog(viewer) {
+    return this.log.map(e => (this.canSeeRoll(viewer, e) ? e : this.redact(e)));
   }
 
   async persistTokens() {
@@ -317,6 +378,7 @@ export class GameRoom {
 
   async reset() {
     this.initialized = false;
+    this.host = null;
     this.tokens.clear();
     this.playerTokens.clear();
     this.log = [];
@@ -390,16 +452,21 @@ export class GameRoom {
       (a, b) => order.indexOf(a[0]) - order.indexOf(b[0])
     );
 
+    let min = 0;
+    let max = 0;
+
     for (const [die, count] of sorted) {
       const sides = die === 'd100' ? 100 : parseInt(die.slice(1));
       parts.push(`${count}${die}`);
+      min += count;
+      max += count * sides;
       for (let i = 0; i < count; i++) {
         results.push(Math.floor(Math.random() * sides) + 1);
       }
     }
 
     results.sort((a, b) => b - a);
-    return { formula: parts.join(' '), results };
+    return { formula: parts.join(' '), results, min, max };
   }
 
   broadcast(message, exclude) {
