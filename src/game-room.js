@@ -27,6 +27,14 @@ function describeBand(value, sides) {
   return ROLL_BANDS[Math.max(0, Math.min(ROLL_BANDS.length - 1, idx))];
 }
 
+// Turn order is declared rather than rolled: each player picks a speed and can
+// change it whenever they like. Ordered fastest first.
+const INITIATIVE_LEVELS = ['muy-rapido', 'rapido', 'lento', 'muy-lento'];
+
+// Map pings are transient and never stored, but a held key should not be able
+// to flood the room with them.
+const PING_MIN_MS = 400;
+
 const LOG_LIMIT = 100;
 const MAX_TOKENS = 40;
 const MAX_BACKGROUND = 800000; // data URL chars; SQLite allows 2 MB per value
@@ -47,17 +55,20 @@ export class GameRoom {
   constructor(state, env) {
     this.state = state;
     this.tokensDirty = false;
+    // In memory only: a lost throttle after hibernation costs nothing.
+    this.lastPing = new Map();
 
     // Hibernation re-runs this constructor with empty memory every time the
     // object wakes, so the room is rehydrated from storage before anything
     // else runs. The background is deliberately excluded: it is large and only
     // needed when somebody joins.
     state.blockConcurrencyWhile(async () => {
-      const [meta, tokens, playerTokens, log] = await Promise.all([
+      const [meta, tokens, playerTokens, log, initiative] = await Promise.all([
         state.storage.get('meta'),
         state.storage.get('tokens'),
         state.storage.get('playerTokens'),
         state.storage.get('log'),
+        state.storage.get('initiative'),
       ]);
       this.initialized = meta ? meta.initialized : false;
       // Identified by name, like the tokens: a host who reconnects keeps the
@@ -69,6 +80,8 @@ export class GameRoom {
       this.tokens = new Map(tokens || []);
       this.playerTokens = new Map(playerTokens || []);
       this.log = log || [];
+      // Keyed by lowercased name so it survives a reconnect, like the tokens.
+      this.initiative = new Map(initiative || []);
     });
 
     // The runtime answers keepalive pings itself, so the heartbeat never wakes
@@ -111,6 +124,8 @@ export class GameRoom {
         log: [],
         background: null,
         tokens: this.getTokens(),
+        initiative: this.getInitiative(),
+        isHost: true,
       }));
 
     } else if (action === 'join') {
@@ -154,6 +169,9 @@ export class GameRoom {
         log: this.visibleLog(name),
         background: (await this.state.storage.get('background')) || null,
         tokens: this.getTokens(),
+        initiative: this.getInitiative(),
+        // Only whether this recipient is the host, never who the host is.
+        isHost: this.isHost(name),
       }));
 
       this.broadcast({ type: 'player-joined', name, players: playerNames }, server);
@@ -178,6 +196,54 @@ export class GameRoom {
       if (msg.data === null) await this.state.storage.delete('background');
       else await this.state.storage.put('background', msg.data);
       this.broadcast({ type: 'background', data: msg.data });
+      return;
+    }
+
+    if (msg.type === 'map-ping') {
+      const x = clampPos(msg.x);
+      const y = clampPos(msg.y);
+      if (x === null || y === null) return;
+
+      const key = name.toLowerCase();
+      const now = Date.now();
+      if (now - (this.lastPing.get(key) || 0) < PING_MIN_MS) return;
+      this.lastPing.set(key, now);
+
+      // Carry the pinger's own token colour so the table can tell at a glance
+      // who is pointing, without a legend.
+      const tokenId = this.playerTokens.get(key);
+      const token = tokenId ? this.tokens.get(tokenId) : null;
+      this.broadcast({
+        type: 'map-pinged',
+        x,
+        y,
+        name,
+        color: token ? token.color : TOKEN_COLORS[0],
+      });
+      return;
+    }
+
+    if (msg.type === 'initiative-set') {
+      const key = name.toLowerCase();
+      if (msg.level === null) {
+        this.initiative.delete(key);
+      } else if (INITIATIVE_LEVELS.includes(msg.level)) {
+        this.initiative.set(key, msg.level);
+      } else {
+        return;
+      }
+      await this.persistInitiative();
+      this.broadcast({ type: 'initiative', initiative: this.getInitiative() });
+      return;
+    }
+
+    if (msg.type === 'initiative-reset') {
+      // Checked here rather than by hiding the button: the client cannot be
+      // the thing that decides who is allowed to wipe the table's turn order.
+      if (!this.isHost(name)) return;
+      this.initiative.clear();
+      await this.persistInitiative();
+      this.broadcast({ type: 'initiative', initiative: this.getInitiative() });
       return;
     }
 
@@ -322,6 +388,14 @@ export class GameRoom {
 
   // --- Persistence ---
 
+  async persistInitiative() {
+    await this.state.storage.put('initiative', Array.from(this.initiative));
+  }
+
+  getInitiative() {
+    return Object.fromEntries(this.initiative);
+  }
+
   async persistMeta() {
     await this.state.storage.put('meta', {
       initialized: this.initialized,
@@ -384,6 +458,7 @@ export class GameRoom {
     this.host = null;
     this.tokens.clear();
     this.playerTokens.clear();
+    this.initiative.clear();
     this.log = [];
     this.tokenSeq = 0;
     this.npcSeq = 0;

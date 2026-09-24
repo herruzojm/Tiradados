@@ -56,6 +56,9 @@
   const logEntries = document.getElementById('log-entries');
   const logEmpty = document.getElementById('log-empty');
   const banner = document.getElementById('connection-banner');
+  const initiativePicker = document.getElementById('initiative-picker');
+  const initiativeOrder = document.getElementById('initiative-order');
+  const btnInitiativeReset = document.getElementById('btn-initiative-reset');
 
   const PING_INTERVAL_MS = 25000;
   const PONG_TIMEOUT_MS = 10000;
@@ -67,6 +70,9 @@
   let reconnectDelay = 1000;
   let pingTimer = null;
   let rejected = false;
+  let connectedPlayers = [];
+  let initiative = {};
+  let isHost = false;
   let pongTimer = null;
 
   // --- Render dice selector ---
@@ -233,7 +239,86 @@
   }
 
   function updatePlayers(players) {
+    connectedPlayers = players;
     playerListEl.textContent = players.join(', ');
+    renderInitiative();
+  }
+
+  // --- Initiative ---
+  // Declared, not rolled: everyone picks a speed and may change it at any
+  // moment. Stored server-side by name so it survives a reconnect.
+  const INITIATIVE_LEVELS = [
+    { id: 'muy-rapido', label: 'Muy rapido' },
+    { id: 'rapido', label: 'Rapido' },
+    { id: 'lento', label: 'Lento' },
+    { id: 'muy-lento', label: 'Muy lento' },
+  ];
+
+  function myLevel() {
+    return initiative[name.toLowerCase()] || null;
+  }
+
+  function sendInitiative(level) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type: 'initiative-set', level: level }));
+  }
+
+  INITIATIVE_LEVELS.forEach(level => {
+    const btn = document.createElement('button');
+    btn.className = 'initiative-option';
+    btn.dataset.level = level.id;
+    btn.textContent = level.label;
+    btn.addEventListener('click', () => {
+      // Clicking the active one clears it, so there is a way back to unset.
+      sendInitiative(myLevel() === level.id ? null : level.id);
+    });
+    initiativePicker.appendChild(btn);
+  });
+
+  btnInitiativeReset.addEventListener('click', () => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type: 'initiative-reset' }));
+  });
+
+  function renderInitiative() {
+    const mine = myLevel();
+    initiativePicker.querySelectorAll('.initiative-option').forEach(btn => {
+      btn.classList.toggle('selected', btn.dataset.level === mine);
+    });
+    btnInitiativeReset.hidden = !isHost;
+
+    // Only connected players are listed, so stale names never linger, but the
+    // stored value is kept server-side for whoever drops and comes back.
+    const rank = (who) => {
+      const idx = INITIATIVE_LEVELS.findIndex(l => l.id === initiative[who.toLowerCase()]);
+      return idx === -1 ? INITIATIVE_LEVELS.length : idx;
+    };
+    const ordered = connectedPlayers.slice().sort((a, b) => {
+      const d = rank(a) - rank(b);
+      return d !== 0 ? d : a.localeCompare(b);
+    });
+
+    initiativeOrder.textContent = '';
+    if (ordered.length === 0) return;
+
+    ordered.forEach(who => {
+      const level = initiative[who.toLowerCase()] || null;
+      const chip = document.createElement('div');
+      chip.className = 'initiative-chip' + (level ? ' lvl-' + level : ' lvl-none');
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'initiative-name';
+      nameSpan.textContent = who;
+      chip.appendChild(nameSpan);
+
+      const levelSpan = document.createElement('span');
+      levelSpan.className = 'initiative-level';
+      const found = INITIATIVE_LEVELS.find(l => l.id === level);
+      levelSpan.textContent = found ? found.label : 'sin marcar';
+      chip.appendChild(levelSpan);
+
+      initiativeOrder.appendChild(chip);
+    });
   }
 
   // --- WebSocket ---
@@ -283,6 +368,14 @@
           }
           if (msg.background) setBackground(msg.background);
           setTokens(msg.tokens || []);
+          isHost = msg.isHost === true;
+          initiative = msg.initiative || {};
+          renderInitiative();
+          break;
+
+        case 'initiative':
+          initiative = msg.initiative || {};
+          renderInitiative();
           break;
 
         case 'token-added':
@@ -310,6 +403,10 @@
 
         case 'token-removed':
           removeToken(msg.id);
+          break;
+
+        case 'map-pinged':
+          showPing(msg);
           break;
 
         case 'roll-result':
@@ -585,6 +682,8 @@
 
   // --- Dragging ---
   function onTokenPointerDown(e) {
+    // Alt is the ping gesture: let it bubble to the map instead of grabbing.
+    if (e.altKey) return;
     const entry = mapTokens.get(e.currentTarget.dataset.id);
     if (!entry) return;
     e.preventDefault();
@@ -732,6 +831,79 @@
     if (!tokenEditor || tokenEditor.contains(e.target)) return;
     closeTokenEditor();
   });
+
+  // --- Map pings ---
+  // "Look here" without describing it: Alt+click on the map, or a long press
+  // on touch. Transient and never stored.
+  const PING_HOLD_MS = 500;
+  const PING_LIFETIME_MS = 1800;
+  const PING_MOVE_TOLERANCE = 8;
+  let pingHoldTimer = null;
+  let pingHoldAt = null;
+
+  function sendPing(clientX, clientY) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const rect = stagingEl.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    ws.send(JSON.stringify({
+      type: 'map-ping',
+      x: clampPos((clientX - rect.left) / rect.width),
+      y: clampPos((clientY - rect.top) / rect.height),
+    }));
+  }
+
+  function showPing(data) {
+    const el = document.createElement('div');
+    el.className = 'map-ping';
+    el.style.left = (data.x * 100) + '%';
+    el.style.top = (data.y * 100) + '%';
+    el.style.setProperty('--ping-color', data.color);
+
+    const ring = document.createElement('div');
+    ring.className = 'map-ping-ring';
+    el.appendChild(ring);
+
+    const who = document.createElement('div');
+    who.className = 'map-ping-name';
+    who.textContent = data.name;
+    el.appendChild(who);
+
+    tokenLayer.appendChild(el);
+    setTimeout(() => el.remove(), PING_LIFETIME_MS);
+  }
+
+  function cancelPingHold() {
+    clearTimeout(pingHoldTimer);
+    pingHoldTimer = null;
+    pingHoldAt = null;
+  }
+
+  stagingEl.addEventListener('pointerdown', (e) => {
+    if (e.altKey) {
+      e.preventDefault();
+      sendPing(e.clientX, e.clientY);
+      return;
+    }
+    // Long press is the touch equivalent; on a mouse it would fight dragging.
+    if (e.pointerType !== 'touch') return;
+    pingHoldAt = { x: e.clientX, y: e.clientY };
+    clearTimeout(pingHoldTimer);
+    pingHoldTimer = setTimeout(() => {
+      pingHoldTimer = null;
+      if (pingHoldAt) sendPing(pingHoldAt.x, pingHoldAt.y);
+    }, PING_HOLD_MS);
+  });
+
+  stagingEl.addEventListener('pointermove', (e) => {
+    if (!pingHoldAt) return;
+    if (Math.abs(e.clientX - pingHoldAt.x) > PING_MOVE_TOLERANCE ||
+        Math.abs(e.clientY - pingHoldAt.y) > PING_MOVE_TOLERANCE) {
+      cancelPingHold();
+    }
+  });
+
+  stagingEl.addEventListener('pointerup', cancelPingHold);
+  stagingEl.addEventListener('pointercancel', cancelPingHold);
 
   // --- NPC pool ---
   TOKEN_COLORS.forEach(c => {

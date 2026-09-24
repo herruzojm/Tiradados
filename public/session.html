@@ -26,7 +26,7 @@
       <div class="token-bar">
         <span class="token-bar-label">Fichas</span>
         <div class="token-palette" id="token-palette"></div>
-        <span class="token-bar-hint">Click en un color para anadir un PNJ &middot; arrastra para mover &middot; click en una ficha para editarla</span>
+        <span class="token-bar-hint">Click en un color para anadir un PNJ &middot; arrastra para mover &middot; click en una ficha para editarla &middot; Alt+click para senalar</span>
       </div>
       <div class="dice-actions">
         <button class="btn-clear" id="btn-clear">Limpiar <span class="shortcut">(Esc)</span></button>
@@ -38,6 +38,15 @@
     <div class="divider" id="divider"></div>
 
     <section class="log" id="log">
+      <div class="initiative-panel">
+        <div class="initiative-head">
+          <span class="log-title">Iniciativa</span>
+          <button class="btn-initiative-reset" id="btn-initiative-reset" hidden title="Borra la iniciativa de toda la mesa">Reiniciar</button>
+        </div>
+        <div class="initiative-picker" id="initiative-picker"></div>
+        <div class="initiative-order" id="initiative-order"></div>
+      </div>
+
       <div class="log-title">Historial</div>
       <div class="log-entries" id="log-entries">
         <p class="log-empty" id="log-empty">Aun no hay tiradas</p>

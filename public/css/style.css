@@ -223,6 +223,13 @@ body {
   position: relative;
 }
 
+/* A long press must flag a spot, not select text or pop the iOS callout. */
+.dice-staging {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
 .dice-staging.drag-over {
   border-color: #ffd700;
   background-color: rgba(255, 215, 0, 0.05);
@@ -459,6 +466,160 @@ body.invited .btn-join:hover {
   background: #ffd700;
   opacity: 0.9;
 }
+
+/* ===== MAP PINGS ===== */
+
+.map-ping {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.map-ping-ring {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 3px solid var(--ping-color, #ffd700);
+  box-shadow: 0 0 12px var(--ping-color, #ffd700);
+  animation: pingPulse 1.8s ease-out forwards;
+}
+
+@keyframes pingPulse {
+  0% { transform: scale(0.4); opacity: 0; }
+  15% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(4.5); opacity: 0; }
+}
+
+.map-ping-name {
+  margin-top: 6px;
+  font-size: 0.65rem;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.75);
+  padding: 1px 6px;
+  border-radius: 6px;
+  white-space: nowrap;
+  animation: pingFade 1.8s ease-out forwards;
+}
+
+@keyframes pingFade {
+  0% { opacity: 0; }
+  15% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ===== INITIATIVE ===== */
+
+.initiative-panel {
+  border-bottom: 1px solid #2a2a4a;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.75rem;
+  flex-shrink: 0;
+}
+
+.initiative-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.btn-initiative-reset {
+  background: transparent;
+  border: 1px solid #555;
+  color: #aaa;
+  border-radius: 6px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.btn-initiative-reset:hover {
+  border-color: #ff6b6b;
+  color: #ff6b6b;
+}
+
+.initiative-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.6rem;
+}
+
+.initiative-option {
+  background: #1a1a2e;
+  border: 1px solid #2a2a4a;
+  color: #aaa;
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.initiative-option:hover {
+  border-color: #555;
+  color: #e0e0e0;
+}
+
+.initiative-option.selected {
+  background: #ffd700;
+  border-color: #ffd700;
+  color: #1a1a2e;
+  font-weight: 700;
+}
+
+.initiative-order {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* Fastest first; the stripe gives the ramp at a glance without reading. */
+.initiative-chip {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  padding: 0.25rem 0.5rem;
+  border-left: 3px solid #333;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 0 4px 4px 0;
+}
+
+.initiative-chip .initiative-name {
+  color: #e0e0e0;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.initiative-chip .initiative-level {
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.initiative-chip.lvl-muy-rapido { border-left-color: #4cd964; }
+.initiative-chip.lvl-muy-rapido .initiative-level { color: #4cd964; }
+
+.initiative-chip.lvl-rapido { border-left-color: #7ec8e3; }
+.initiative-chip.lvl-rapido .initiative-level { color: #7ec8e3; }
+
+.initiative-chip.lvl-lento { border-left-color: #ff8c42; }
+.initiative-chip.lvl-lento .initiative-level { color: #ff8c42; }
+
+.initiative-chip.lvl-muy-lento { border-left-color: #e6394b; }
+.initiative-chip.lvl-muy-lento .initiative-level { color: #e6394b; }
+
+.initiative-chip.lvl-none .initiative-name { color: #777; }
+.initiative-chip.lvl-none .initiative-level { color: #555; font-style: italic; }
 
 /* ===== HIDDEN ROLLS ===== */
 
